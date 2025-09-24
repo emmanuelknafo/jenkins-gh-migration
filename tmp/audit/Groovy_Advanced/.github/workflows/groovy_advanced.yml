@@ -1,0 +1,123 @@
+name: Groovy_Advanced
+on:
+  workflow_dispatch:
+    inputs:
+      BRANCH:
+        required: false
+        description: Git branch
+        default: main
+jobs:
+  Prepare:
+    runs-on:
+      - self-hosted
+      - docker-agent
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo "Running prepare on ${{ env.NODE_NAME }}"
+    - name: sh
+      shell: bash
+      run: '"mkdir -p ${{ env.buildDir }} && echo build-prep > ${{ env.buildDir }}/prep.txt"'
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4.1.0
+      with:
+        name: prepared
+        path: '"${{ env.buildDir }}/**"'
+        if-no-files-found: error
+  Parallel_Work_Worker_A:
+    name: Parallel Work-Worker A
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Prepare
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4.1.0
+      with:
+        name: prepared
+    - name: echo message
+      run: echo "Worker A running on ${{ env.NODE_NAME }}"
+    - name: sh
+      shell: bash
+      run: '"echo A > ${{ env.buildDir }}/a.txt"'
+  Parallel_Work_Worker_B:
+    name: Parallel Work-Worker B
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Prepare
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4.1.0
+      with:
+        name: prepared
+    - name: echo message
+      run: echo "Worker B running on ${{ env.NODE_NAME }}"
+    - name: sh
+      shell: bash
+      run: '"echo B > ${{ env.buildDir }}/b.txt"'
+  Integration:
+    if:
+#       # Unsupported condition(s) [expression]
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs:
+    - Parallel_Work_Worker_A
+    - Parallel_Work_Worker_B
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running integration tests (dummy)
+    - name: sh
+      shell: bash
+      run: '"echo integration > ${{ env.buildDir }}/integration.txt"'
+  Package:
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Integration
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Packaging
+    - name: sh
+      shell: bash
+      run: '"tar -czf ${{ env.buildDir }}/artifact-${{ github.run_id }}.tgz -C ${{ env.buildDir }} ."'
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4.1.0
+      if: always()
+      with:
+        path: '"${{ env.buildDir }}/**/*"'
+  Post-Build:
+    if: always()
+    name: Post Build
+    runs-on: ubuntu-latest
+    needs:
+    - Prepare
+    - Parallel_Work_Worker_A
+    - Parallel_Work_Worker_B
+    - Integration
+    - Package
+    steps:
+    - name: echo message
+      run: echo Cleaning up workspace
+      if: always()
+#     # 'script' was not transformed because there is no suitable equivalent in GitHub Actions
+#     - name: script
+#       arguments:
+#       - key: scriptBlock
+#         value:
+#           isLiteral: true
+#           value: |-
+#             node('docker-agent') {
+#                                 cleanWs()
+#                             }
+#       if: always()

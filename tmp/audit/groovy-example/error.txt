@@ -1,0 +1,3 @@
+Unable to parse Jenkins pipeline. Scripted pipelines are not currently supported.
+Pipeline type: flow-definition
+Message: Jenkins scripted pipelines are not supported

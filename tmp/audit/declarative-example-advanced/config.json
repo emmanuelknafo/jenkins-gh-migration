@@ -1,0 +1,95 @@
+{
+  "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject": {
+    "plugin": "workflow-multibranch@821.vc3b_4ea_780798",
+    "actions": null,
+    "description": null,
+    "displayName": "Declarative Ex Advanced",
+    "properties": null,
+    "folderViews": [
+      {
+        "owner": {
+          "class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+          "reference": "../.."
+        }
+      }
+    ],
+    "healthMetrics": null,
+    "icon": {
+      "class": "jenkins.branch.MetadataActionFolderIcon",
+      "plugin": "branch-api@2.1253.v6e7f7519f710",
+      "owner": {
+        "class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+        "reference": "../.."
+      }
+    },
+    "orphanedItemStrategy": {
+      "class": "com.cloudbees.hudson.plugins.folder.computed.DefaultOrphanedItemStrategy",
+      "plugin": "cloudbees-folder@6.1045.vb_ddd55e2d03f",
+      "pruneDeadBranches": "true",
+      "daysToKeep": "-1",
+      "numToKeep": "-1",
+      "abortBuilds": "false"
+    },
+    "triggers": null,
+    "disabled": "false",
+    "sources": [
+      {
+        "data": [
+          {
+            "jenkins.branch.BranchSource": {
+              "source": {
+                "class": "org.jenkinsci.plugins.github_branch_source.GitHubSCMSource",
+                "plugin": "github-branch-source@1864.v411feec5e78e",
+                "id": "16c53283-fdbd-4899-b134-4f2ad49d75f8",
+                "apiUri": "REDACTED://api.github.com",
+                "repoOwner": "emmanuelknafo",
+                "repository": "jenkins-gh-migration",
+                "repositoryUrl": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration",
+                "traits": [
+                  {
+                    "org.jenkinsci.plugins.github__branch__source.BranchDiscoveryTrait": {
+                      "strategyId": "1"
+                    }
+                  },
+                  {
+                    "org.jenkinsci.plugins.github__branch__source.OriginPullRequestDiscoveryTrait": {
+                      "strategyId": "2"
+                    }
+                  },
+                  {
+                    "org.jenkinsci.plugins.github__branch__source.ForkPullRequestDiscoveryTrait": {
+                      "strategyId": "2",
+                      "trust": {
+                        "class": "org.jenkinsci.plugins.github_branch_source.ForkPullRequestDiscoveryTrait$TrustPermission"
+                      }
+                    }
+                  }
+                ]
+              },
+              "strategy": {
+                "class": "jenkins.branch.DefaultBranchPropertyStrategy",
+                "properties": {
+                  "class": "empty-list"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "owner": {
+          "class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+          "reference": "../.."
+        }
+      }
+    ],
+    "factory": {
+      "class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowBranchProjectFactory",
+      "owner": {
+        "class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+        "reference": "../.."
+      },
+      "scriptPath": "Jenkinsfile.advanced"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+Pipeline,Action,File path
+declarative-example,actions/checkout@v4.1.0,tmp/audit/declarative-example/main/.github/workflows/main.yml
+declarative-example-advanced,actions/checkout@v4.1.0,tmp/audit/declarative-example-advanced/main/.github/workflows/main.yml
+declarative-example-advanced,actions/upload-artifact@v4.1.0,tmp/audit/declarative-example-advanced/main/.github/workflows/main.yml
+declarative-example-advanced,EnricoMi/publish-unit-test-result-action@v2.12.0,tmp/audit/declarative-example-advanced/main/.github/workflows/main.yml
+Groovy_Advanced,actions/checkout@v4.1.0,tmp/audit/Groovy_Advanced/.github/workflows/groovy_advanced.yml
+Groovy_Advanced,actions/upload-artifact@v4.1.0,tmp/audit/Groovy_Advanced/.github/workflows/groovy_advanced.yml
+Groovy_Advanced,actions/download-artifact@v4.1.0,tmp/audit/Groovy_Advanced/.github/workflows/groovy_advanced.yml
+
+Pipeline,Secret,File path
+
+
+Pipeline,Runner,File path
+declarative-example-advanced,docker-agent,tmp/audit/declarative-example-advanced/main/.github/workflows/main.yml
+Groovy_Advanced,docker-agent,tmp/audit/Groovy_Advanced/.github/workflows/groovy_advanced.yml

@@ -1,0 +1,154 @@
+name: declarative-example-advanced/main
+on:
+  workflow_dispatch:
+    inputs:
+      BRANCH:
+        required: false
+        description: Git branch to build
+        default: main
+      PROFILE:
+        required: true
+        description: 'Target profile (Valid options: dev, staging, prod)'
+env:
+  APP_NAME: demo-app
+  BUILD_DIR: build
+jobs:
+  Checkout:
+    runs-on:
+      - self-hosted
+      - docker-agent
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo "Checking out branch ${{ inputs.BRANCH }}"
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+  Build_Test_Build:
+    name: Build & Test-Build
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Checkout
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo "Building ${{ env.APP_NAME }} (profile=${{ inputs.PROFILE }})"
+    - name: sh
+      shell: bash
+      run: mkdir -p ${{ env.BUILD_DIR }} && echo dummy-artifact > ${{ env.BUILD_DIR }}/app.txt
+  Build_Test_Unit_Tests:
+    name: Build & Test-Unit Tests
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Checkout
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running unit tests
+    - name: sh
+      shell: bash
+      run: echo OK > ${{ env.BUILD_DIR }}/unit.test
+  Build_Test_Integration_Tests:
+    if:
+#       # Unsupported condition(s) [expression]
+    name: Build & Test-Integration Tests
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Checkout
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running integration tests (this may be slow)
+    - name: sh
+      shell: bash
+      run: echo INTEGRATION_OK > ${{ env.BUILD_DIR }}/integration.test
+  Static_Analysis:
+    name: Static Analysis
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs:
+    - Build_Test_Build
+    - Build_Test_Unit_Tests
+    - Build_Test_Integration_Tests
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running static analysis (placeholder)
+    - name: sh
+      shell: bash
+      run: echo lint-ok > ${{ env.BUILD_DIR }}/lint.txt
+  Package:
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Static_Analysis
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Packaging artifacts
+    - name: sh
+      shell: bash
+      run: tar -czf ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-${{ github.run_id }}.tgz -C ${{ env.BUILD_DIR }} .
+  Archive_Publish:
+    name: Archive & Publish
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs: Package
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4.1.0
+      if: always()
+      with:
+        path: '"${{ env.BUILD_DIR }}/**/*"'
+    - name: echo message
+      run: 'echo Simulate publish step: push to artifact repository (omitted)'
+  Post-Build:
+    if: always()
+    name: Post Build
+    runs-on:
+      - self-hosted
+      - docker-agent
+    needs:
+    - Checkout
+    - Build_Test_Build
+    - Build_Test_Unit_Tests
+    - Build_Test_Integration_Tests
+    - Static_Analysis
+    - Package
+    - Archive_Publish
+    steps:
+    - name: snapshot post build workflow status
+      run: |-
+        echo "success=${{ contains(needs.*.result,'success') && !contains(needs.*.result,'cancelled') && !contains(needs.*.result,'failure') }}" >> $GITHUB_OUTPUT
+        echo "failure=${{ contains(needs.*.result,'failure') && !contains(needs.*.result,'cancelled') }}" >> $GITHUB_OUTPUT
+      id: post_build
+    - name: echo message
+      run: echo "Build ${{ env.BUILD_NUMBER }} failed"
+      if: steps.post_build.outputs.failure == 'true'
+    - name: echo message
+      run: echo "Build ${{ env.BUILD_NUMBER }} succeeded"
+      if: steps.post_build.outputs.success == 'true'
+    - name: echo message
+      run: echo Collecting test reports and cleaning workspace
+      if: always()
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2.12.0
+      if: always()
+      with:
+        junit_files: "**/target/surefire-reports/*.xml"
+    - name: clean workspace
+      shell: bash
+      run: rm -rf ${{ github.workspace }}/*
+      if: always()

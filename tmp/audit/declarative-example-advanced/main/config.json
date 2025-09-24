@@ -1,0 +1,174 @@
+{
+  "branch": {
+    "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+    "fullName": "declarative-example-advanced/main",
+    "name": "main",
+    "url": "REDACTED://localhost:8080/job/declarative-example-advanced/job/main/"
+  },
+  "flow_definition": {
+    "plugin": "workflow-job@1546.v62a_c59c112dd",
+    "actions": [
+      {
+        "org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction": {
+          "plugin": "pipeline-model-definition@2.2273.v643f36ed9e94"
+        }
+      },
+      {
+        "org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction": {
+          "plugin": "pipeline-model-definition@2.2273.v643f36ed9e94",
+          "jobProperties": [
+            {
+              "string": "jenkins.model.BuildDiscarderProperty"
+            }
+          ],
+          "triggers": null,
+          "parameters": [
+            {
+              "string": "BRANCH"
+            },
+            {
+              "string": "PROFILE"
+            },
+            {
+              "string": "RUN_INTEGRATION"
+            }
+          ],
+          "options": null
+        }
+      }
+    ],
+    "keepDependencies": "false",
+    "properties": [
+      {
+        "org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty": {
+          "plugin": "workflow-multibranch@821.vc3b_4ea_780798",
+          "branch": {
+            "plugin": "branch-api@2.1253.v6e7f7519f710",
+            "sourceId": "16c53283-fdbd-4899-b134-4f2ad49d75f8",
+            "head": {
+              "class": "org.jenkinsci.plugins.github_branch_source.BranchSCMHead",
+              "plugin": "github-branch-source@1864.v411feec5e78e",
+              "name": "main"
+            },
+            "scm": {
+              "class": "hudson.plugins.git.GitSCM",
+              "plugin": "git@5.7.0",
+              "configVersion": "2",
+              "userRemoteConfigs": [
+                {
+                  "hudson.plugins.git.UserRemoteConfig": {
+                    "name": "origin",
+                    "refspec": "+refs/heads/main:refs/remotes/origin/main",
+                    "url": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration.git"
+                  }
+                }
+              ],
+              "branches": [
+                {
+                  "hudson.plugins.git.BranchSpec": {
+                    "name": "main"
+                  }
+                }
+              ],
+              "doGenerateSubmoduleConfigurations": "false",
+              "browser": {
+                "class": "hudson.plugins.git.browser.GithubWeb",
+                "url": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration"
+              },
+              "submoduleCfg": {
+                "class": "empty-list"
+              },
+              "extensions": [
+                {
+                  "jenkins.plugins.git.GitSCMSourceDefaults": [
+                    {
+                      "includeTags": "false"
+                    }
+                  ]
+                }
+              ]
+            },
+            "properties": null,
+            "actions": [
+              {
+                "org.jenkinsci.plugins.github__branch__source.GitHubLink": {
+                  "plugin": "github-branch-source@1864.v411feec5e78e",
+                  "url": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration/tree/main"
+                }
+              },
+              {
+                "jenkins.scm.api.metadata.ObjectMetadataAction": {
+                  "plugin": "scm-api@709.v6c27075a_b_1c7",
+                  "objectDisplayName": "main",
+                  "objectUrl": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration/tree/main"
+                }
+              },
+              {
+                "jenkins.scm.api.metadata.PrimaryInstanceMetadataAction": {
+                  "plugin": "scm-api@709.v6c27075a_b_1c7"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "hudson.model.ParametersDefinitionProperty": {
+          "parameterDefinitions": [
+            {
+              "hudson.model.StringParameterDefinition": {
+                "name": "BRANCH",
+                "description": "Git branch to build",
+                "defaultValue": "main",
+                "trim": "false"
+              }
+            },
+            {
+              "hudson.model.BooleanParameterDefinition": {
+                "name": "RUN_INTEGRATION",
+                "description": "Run integration tests?",
+                "defaultValue": "false"
+              }
+            },
+            {
+              "hudson.model.ChoiceParameterDefinition": {
+                "name": "PROFILE",
+                "description": "Target profile",
+                "choices": [
+                  {
+                    "string": "dev"
+                  },
+                  {
+                    "string": "staging"
+                  },
+                  {
+                    "string": "prod"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "jenkins.model.BuildDiscarderProperty": {
+          "strategy": {
+            "class": "hudson.tasks.LogRotator",
+            "daysToKeep": "-1",
+            "numToKeep": "10",
+            "artifactDaysToKeep": "-1",
+            "artifactNumToKeep": "-1",
+            "removeLastBuild": "false"
+          }
+        }
+      }
+    ],
+    "definition": {
+      "class": "org.jenkinsci.plugins.workflow.multibranch.SCMBinder",
+      "plugin": "workflow-multibranch@821.vc3b_4ea_780798",
+      "scriptPath": "Jenkinsfile.advanced"
+    },
+    "triggers": null,
+    "disabled": "false"
+  }
+}

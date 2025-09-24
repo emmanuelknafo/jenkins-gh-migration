@@ -1,0 +1,56 @@
+{
+  "flow-definition": {
+    "plugin": "workflow-job@1546.v62a_c59c112dd",
+    "actions": [
+      {
+        "org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction": {
+          "plugin": "pipeline-model-definition@2.2273.v643f36ed9e94"
+        }
+      },
+      {
+        "org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction": {
+          "plugin": "pipeline-model-definition@2.2273.v643f36ed9e94",
+          "jobProperties": null,
+          "triggers": null,
+          "parameters": null,
+          "options": null
+        }
+      }
+    ],
+    "description": null,
+    "keepDependencies": "false",
+    "properties": null,
+    "definition": {
+      "class": "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition",
+      "plugin": "workflow-cps@4204.v2894b_cd7b_92f",
+      "scm": {
+        "class": "hudson.plugins.git.GitSCM",
+        "plugin": "git@5.7.0",
+        "configVersion": "2",
+        "userRemoteConfigs": [
+          {
+            "hudson.plugins.git.UserRemoteConfig": {
+              "url": "REDACTED://github.com/emmanuelknafo/jenkins-gh-migration"
+            }
+          }
+        ],
+        "branches": [
+          {
+            "hudson.plugins.git.BranchSpec": {
+              "name": "main"
+            }
+          }
+        ],
+        "doGenerateSubmoduleConfigurations": "false",
+        "submoduleCfg": {
+          "class": "empty-list"
+        },
+        "extensions": null
+      },
+      "scriptPath": "scripted-pipeline.groovy",
+      "lightweight": "true"
+    },
+    "triggers": null,
+    "disabled": "false"
+  }
+}
