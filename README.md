@@ -163,6 +163,34 @@ Files in this repo:
 - `run-jenkins.ps1` — PowerShell helper to run Jenkins in Docker and surface the password.
 - `Jenkinsfile` — Declarative example pipeline.
 - `scripted-pipeline.groovy` — Scripted Groovy pipeline example.
+
+## Using Docker Compose (controller + agent)
+
+This repository now includes a `docker-compose.yml` which starts a Jenkins controller and a simple inbound agent. The Compose stack maps the same persistent volume `jenkins_home` used by the script.
+
+Start the Compose stack with:
+
+```powershell
+# start controller + agent using docker compose directly
+docker compose up -d
+```
+
+Or use the helper script to start the compose stack (new `-Compose` switch):
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Compose
+```
+
+Force a clean reinstall of the compose stack and volume:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Compose -Force
+```
+
+Notes:
+- The `-Compose` option prefers the built-in `docker compose` command (Docker CLI plugin). If `docker` with compose is not available it will fall back to `docker-compose` if installed.
+- `-Force` will try to bring down existing compose services and remove the `jenkins_home` volume. This is destructive and will delete Jenkins data.
+
 # jenkins-gh-migration
 
 https://dev.to/msrabon/step-by-step-guide-to-setting-up-jenkins-on-docker-with-docker-agent-based-builds-43j5

@@ -14,7 +14,8 @@ Usage: run with PowerShell (pwsh) so Start-Process opens the default browser on 
 
 param(
     [switch]$Force,               # when set, remove container AND volume and do a fresh install
-    [int]$Timeout = 300           # overall readiness timeout in seconds
+    [int]$Timeout = 300,          # overall readiness timeout in seconds
+    [switch]$Compose               # when set, use docker compose to start controller + agent
 )
 
 $Image = 'jenkins/jenkins:lts'
@@ -67,16 +68,39 @@ if ($exists -eq $Container) {
 }
 
 if (($exists -ne $Container) -or ($isRunning -ne 'true')) {
-    Write-Host "Starting Jenkins container '$Container' (image: $Image)"
-    # Build argument array so PowerShell passes each option as a separate argv to the docker executable
-    $dockerArgs = @(
-        'run', '-d', '--name', $Container,
-        '-p', "$($HttpPort):8080",
-        '-p', "$($AgentPort):50000",
-        '-v', "$($Volume):/var/jenkins_home",
-        '--restart', 'unless-stopped', $Image
-    )
-    & docker @dockerArgs | Out-Null
+    if ($Compose) {
+        Write-Host "Starting Jenkins controller + agent using docker compose (docker-compose.yml)"
+
+        # If Force is requested, bring down any existing compose stack and remove the volume
+        if ($Force) {
+            Write-Host "Force requested: removing existing compose stack and attempting to remove volume '$Volume'"
+            # attempt to stop and remove compose stack
+            if (Get-Command docker -ErrorAction SilentlyContinue) {
+                docker compose down --volumes --remove-orphans 2>$null | Out-Null
+            } else {
+                docker-compose down --volumes --remove-orphans 2>$null | Out-Null
+            }
+            docker volume rm $Volume > $null 2>&1
+        }
+
+        # start via docker compose (prefer `docker compose` if available)
+        if (Get-Command docker -ErrorAction SilentlyContinue) {
+            docker compose up -d
+        } else {
+            docker-compose up -d
+        }
+    } else {
+        Write-Host "Starting Jenkins container '$Container' (image: $Image)"
+        # Build argument array so PowerShell passes each option as a separate argv to the docker executable
+        $dockerArgs = @(
+            'run', '-d', '--name', $Container,
+            '-p', "$($HttpPort):8080",
+            '-p', "$($AgentPort):50000",
+            '-v', "$($Volume):/var/jenkins_home",
+            '--restart', 'unless-stopped', $Image
+        )
+        & docker @dockerArgs | Out-Null
+    }
 }
 $WriteHostMsg = "Waiting for Jenkins to become available at $url"
 Write-Host $WriteHostMsg
