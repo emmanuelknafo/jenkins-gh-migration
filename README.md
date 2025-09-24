@@ -43,6 +43,15 @@ Notes:
 
 - The script defaults to a 300s (5 minute) readiness timeout. If your machine is slow, increase `$timeout` inside the script or modify the `Get-InitialPassword` timeout.
 
+Important: force reinstall reminder
+- If you want to **cleanly reinstall** Jenkins (remove the existing container and Jenkins data) you can run the script with the `-Force` switch. This will remove the `jenkins` container and attempt to remove the `jenkins_home` Docker volume before starting a fresh instance:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Force
+```
+
+Warning: `-Force` is destructive — removing the `jenkins_home` volume permanently deletes all Jenkins configuration, jobs and build history stored there. Use `-Force` only when you explicitly want a clean reinstall or you have backups.
+
 ## 2) Unlocking Jenkins (first-time setup)
 
 When you first visit `http://localhost:8080/` you will be shown an "Unlock Jenkins" page asking for the Administrator password. Use one of the following to obtain it:

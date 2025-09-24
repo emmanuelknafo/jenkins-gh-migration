@@ -12,11 +12,19 @@ automatically surface the initial admin password. It will:
 Usage: run with PowerShell (pwsh) so Start-Process opens the default browser on Windows.
 #>
 
+param(
+    [switch]$Force,               # when set, remove container AND volume and do a fresh install
+    [int]$Timeout = 300           # overall readiness timeout in seconds
+)
+
 $Image = 'jenkins/jenkins:lts'
 $Volume = 'jenkins_home'
 $Container = 'jenkins'
 $HttpPort = 8080
 $AgentPort = 50000
+
+# URL used to open the browser
+$url = "http://localhost:$HttpPort/"
 
 Write-Host "Pulling $Image..."
 docker pull $Image | Out-Null
@@ -36,10 +44,25 @@ $isRunning = $null
 if ($exists -eq $Container) {
     $isRunning = docker inspect -f '{{.State.Running}}' $Container 2>$null
     if ($isRunning -eq 'true') {
-        Write-Host "Container '$Container' is already running."
+        if (-not $Force) {
+            Write-Host "Container '$Container' is already running. Opening browser to $url and exiting."
+            Start-Process $url
+            exit 0
+        } else {
+            Write-Host "Force requested: removing running container '$Container' and volume '$Volume' for fresh install."
+            docker rm -f $Container | Out-Null
+            # attempt to remove volume as part of a full reinstall; ignore errors
+            docker volume rm $Volume > $null 2>&1
+            # mark as absent so we proceed to start a fresh container
+            $exists = $null
+            $isRunning = $null
+        }
     } else {
+        # existing but not running: remove the stopped container so we can start fresh
         Write-Host "Found existing container '$Container' but not running. Removing it."
         docker rm -f $Container | Out-Null
+        $exists = $null
+        $isRunning = $null
     }
 }
 
@@ -55,15 +78,13 @@ if (($exists -ne $Container) -or ($isRunning -ne 'true')) {
     )
     & docker @dockerArgs | Out-Null
 }
+$WriteHostMsg = "Waiting for Jenkins to become available at $url"
+Write-Host $WriteHostMsg
 
-$url = "http://localhost:$HttpPort/"
-Write-Host "Waiting for Jenkins to become available at $url"
-
-$timeout = 300
 $start = Get-Date
 $ready = $false
 $initial = $null
-while ((Get-Date) -lt $start.AddSeconds($timeout)) {
+while ((Get-Date) -lt $start.AddSeconds($Timeout)) {
     try {
         $resp = Invoke-WebRequest -Uri $url -TimeoutSec 5 -ErrorAction Stop
         if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
@@ -141,7 +162,8 @@ while ((Get-Date) -lt $start.AddSeconds($timeout)) {
 }
 
 if (-not $ready) {
-    Write-Warning "Timed out waiting for Jenkins to become ready after $timeout seconds."
+    Write-Warning "Timed out waiting for Jenkins to become ready after $Timeout seconds."
+    exit 1
 } else {
     Write-Host "`nJenkins appears ready."
 }
@@ -197,7 +219,11 @@ function Get-InitialPassword {
     return $null
 }
 
-$initial = Get-InitialPassword -ContainerName $Container -TimeoutSeconds 120
+try {
+    $initial = Get-InitialPassword -ContainerName $Container -TimeoutSeconds 120
+} catch {
+    $initial = $null
+}
 if ($initial) {
     Write-Host "`nInitial Jenkins admin password: $initial"
 } else {
@@ -208,3 +234,4 @@ Write-Host "Opening browser to $url"
 Start-Process $url
 
 Write-Host "Done."
+exit 0
