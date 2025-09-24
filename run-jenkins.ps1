@@ -62,6 +62,7 @@ Write-Host "Waiting for Jenkins to become available at $url"
 $timeout = 300
 $start = Get-Date
 $ready = $false
+$initial = $null
 while ((Get-Date) -lt $start.AddSeconds($timeout)) {
     try {
         $resp = Invoke-WebRequest -Uri $url -TimeoutSec 5 -ErrorAction Stop
@@ -81,6 +82,51 @@ while ((Get-Date) -lt $start.AddSeconds($timeout)) {
         }
     } catch {
         # ignore
+    }
+
+    # Try to surface the initial admin password as soon as it appears (file or logs)
+    if (-not $initial) {
+        try {
+            $pw = docker exec $Container cat /var/jenkins_home/secrets/initialAdminPassword 2>$null
+            if ($pw) {
+                $initial = $pw.Trim()
+                Write-Host "`nInitial Jenkins admin password (from secrets file): $initial"
+                # do not break; let readiness continue to be detected, but we've already shown the password
+            }
+        } catch {
+            # ignore
+        }
+
+        if (-not $initial) {
+            try {
+                $recent = docker logs $Container --tail 500 2>$null
+                if ($recent) {
+                    $m = [regex]::Match($recent -replace '\[LF\]>\s*', '', '[0-9a-fA-F]{32}')
+                    if ($m.Success) {
+                        $initial = $m.Value
+                        Write-Host "`nInitial Jenkins admin password (from logs): $initial"
+                    } else {
+                        # look for the explanatory block and pick the next non-empty-looking line
+                        $lines = ($recent -replace '\[LF\]>\s*', '') -split "\r?\n"
+                        for ($li = 0; $li -lt $lines.Length; $li++) {
+                            if ($lines[$li] -match 'Please use the following password' -or $lines[$li] -match 'An admin user has been created') {
+                                for ($lj = $li+1; $lj -lt [Math]::Min($lines.Length, $li+10); $lj++) {
+                                    $cand = ($lines[$lj] -replace '[^0-9a-fA-F]', '').Trim()
+                                    if ($cand -match '^[0-9a-fA-F]{32}$') {
+                                        $initial = $cand
+                                        Write-Host "`nInitial Jenkins admin password (from logs): $initial"
+                                        break
+                                    }
+                                }
+                                if ($initial) { break }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                # ignore
+            }
+        }
     }
 
     Write-Host -NoNewline '.'
