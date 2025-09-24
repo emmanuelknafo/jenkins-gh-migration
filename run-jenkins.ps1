@@ -102,7 +102,7 @@ function Get-InitialPassword {
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        # 1) try reading the secrets file inside container
+        # 1) try reading the secrets file inside container (fastest, preferred)
         try {
             $pw = docker exec $ContainerName cat $FilePath 2>$null
             if ($pw) { return $pw.Trim() }
@@ -110,19 +110,26 @@ function Get-InitialPassword {
             # ignore
         }
 
-        # 2) fallback: scan logs for a 32-char hex password or the "Please use the following password" block
+        # 2) fallback: scan a larger portion of the container logs and look for a 32-char hex password
         try {
-            $logs = docker logs $ContainerName --tail 500 2>$null
+            # fetch a larger tail in case the log block was earlier in the start sequence
+            $logs = docker logs $ContainerName --tail 2000 2>$null
             if ($logs) {
-                $m = [regex]::Match($logs, '[0-9a-fA-F]{32}')
+                # remove some noisy prompts like [LF]> that can appear in logs
+                $clean = $logs -replace '\[LF\]>\s*', ''
+
+                # search for any 32-char hex (typical Jenkins initial password)
+                $m = [regex]::Match($clean, '[0-9a-fA-F]{32}')
                 if ($m.Success) { return $m.Value }
 
-                $lines = $logs -split "\r?\n"
+                # sometimes the password is printed on its own line after an explanatory line
+                $lines = $clean -split "\r?\n"
                 for ($i = 0; $i -lt $lines.Length; $i++) {
-                    if ($lines[$i] -match 'Please use the following password') {
-                        for ($j = $i+1; $j -lt $lines.Length; $j++) {
-                            $candidate = $lines[$j].Trim()
-                            if ($candidate -ne '') { return $candidate }
+                    if ($lines[$i] -match 'Please use the following password' -or $lines[$i] -match 'An admin user has been created') {
+                        # look a few lines ahead for the first non-empty-looking token that looks like a password
+                        for ($j = $i+1; $j -lt [Math]::Min($lines.Length, $i+10); $j++) {
+                            $candidate = ($lines[$j] -replace '[^0-9a-fA-F]', '').Trim()
+                            if ($candidate -match '^[0-9a-fA-F]{32}$') { return $candidate }
                         }
                     }
                 }
