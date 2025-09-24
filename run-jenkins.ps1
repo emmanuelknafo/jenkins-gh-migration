@@ -11,3 +11,12 @@ docker run -d `
   -p 50000:50000 `
   -v jenkins_home:/var/jenkins_home `
   jenkins/jenkins:lts
+
+# grab the initial admin password
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+# echo the URL to access Jenkins
+Write-Host "Jenkins is running at http://localhost:8080"
+
+# open browser
+Start-Process http://localhost:8080
