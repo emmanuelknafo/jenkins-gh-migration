@@ -191,6 +191,41 @@ Notes:
 - The `-Compose` option prefers the built-in `docker compose` command (Docker CLI plugin). If `docker` with compose is not available it will fall back to `docker-compose` if installed.
 - `-Force` will try to bring down existing compose services and remove the `jenkins_home` volume. This is destructive and will delete Jenkins data.
 
+Using agents with Docker Compose
+--------------------------------
+
+The `docker-compose.yml` in this repo includes an `agent` service that uses the official `jenkins/inbound-agent` image and connects to the controller using the JNLP (inbound) protocol. To run the agent you must create a permanent agent (or copy the JNLP secret) in the Jenkins controller and provide the agent secret to the Compose service.
+
+Steps to create an agent and get the secret:
+
+1. Open Jenkins UI → Manage Jenkins → Manage Nodes and Clouds → New Node.
+2. Create a new permanent agent node (give it a name, e.g. `agent-1`) and choose "Permanent Agent".
+3. After creating the node, go to the agent's page and click "Launch agent by connecting it to the controller". You will see the agent's secret/token and the JNLP command. Copy the secret (a long string).
+
+Using a `.env` file for docker compose
+-------------------------------------
+
+Create a `.env` file next to `docker-compose.yml` with the following content:
+
+```ini
+JENKINS_AGENT_NAME=agent-1
+JENKINS_SECRET=your-jnlp-secret-here
+```
+
+Then start the stack:
+
+```powershell
+docker compose up -d
+```
+
+Or using the helper script:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Compose
+```
+
+If you need the agent to run Docker commands (build inside the agent), consider mounting the host Docker socket into the agent container (see commented `volumes` in `docker-compose.yml`). This has security implications — only do it if you understand and accept the risk.
+
 # jenkins-gh-migration
 
 https://dev.to/msrabon/step-by-step-guide-to-setting-up-jenkins-on-docker-with-docker-agent-based-builds-43j5

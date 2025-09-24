@@ -11,17 +11,23 @@ services:
       - jenkins_home:/var/jenkins_home
     restart: unless-stopped
 
+  # Example inbound agent that connects to the controller using JNLP.
+  # You must supply JENKINS_SECRET (the agent JNLP secret) and optionally JENKINS_AGENT_NAME
+  # via environment variables or a .env file. See README for instructions to obtain the secret.
   agent:
     image: jenkins/inbound-agent:latest
     container_name: jenkins-agent-1
     depends_on:
       - jenkins
     environment:
-      # This points the agent to the controller service by service name
       - JENKINS_URL=http://jenkins:8080
-      - JENKINS_AGENT_NAME=agent-1
+      - JENKINS_AGENT_NAME=${JENKINS_AGENT_NAME:-agent-1}
+      - JENKINS_SECRET=${JENKINS_SECRET:-}
       - JENKINS_AGENT_WORKDIR=/home/jenkins/agent
     restart: unless-stopped
+    # Optional: if you need the agent to run Docker commands, mount the host Docker socket
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   jenkins_home:
