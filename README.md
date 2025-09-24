@@ -1,3 +1,224 @@
+# Jenkins (Docker) + Example Pipelines — Step-by-step
+
+This repository provides:
+
+- `run-jenkins.ps1` — a PowerShell helper to run Jenkins in Docker on Windows. It can run a single container controller or use Docker Compose to start a controller + agent. It prints the initial admin password when available and opens the browser.
+- `docker-compose.yml` — a Compose stack for a Jenkins controller and an inbound (JNLP) agent.
+- `Jenkinsfile` — a simple Declarative pipeline example.
+- `scripted-pipeline.groovy` — a simple Scripted pipeline example.
+- `.env.example` — example env file for Compose agent (do not commit real secrets).
+
+This README is a consolidated, step-by-step walk-through for:
+
+1. Starting Jenkins (script or compose)
+2. Unlocking Jenkins and finishing setup
+3. Creating a permanent agent node in Jenkins and obtaining the JNLP secret
+4. Wiring the agent secret into `.env` and starting the Compose agent
+5. Verifying the agent and using it from pipelines
+6. Troubleshooting and best practices
+
+Follow the steps below.
+
+## Prerequisites
+
+- Windows with PowerShell (pwsh) — the helper script uses `Start-Process` to open the browser.
+- Docker Desktop installed and running; `docker` CLI available on PATH.
+- Optional: `docker compose` (Docker CLI plugin) or `docker-compose` binary.
+
+Open a PowerShell terminal in this repository folder:
+
+```powershell
+cd C:\src\GitHub\emmanuelknafo\jenkins-gh-migration
+```
+
+## 1) Start Jenkins controller
+
+You have two options: the helper script (recommended) or plain Docker Compose.
+
+Option A — helper script (single command, convenient):
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1
+```
+
+- Default behavior: if a `jenkins` container is already running the script opens `http://localhost:8080/` in your browser and exits.
+- You can force a fresh install (remove container and `jenkins_home` volume) with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Force
+```
+
+Option B — Docker Compose (controller + agent):
+
+```powershell
+docker compose up -d
+```
+
+Or use the script to start the compose stack:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Compose
+```
+
+Notes:
+- The script accepts `-Timeout <seconds>` to extend readiness timeout. Default is 300s.
+- `-Force` is destructive: it removes container and attempts to remove the `jenkins_home` volume. Use with care.
+
+## 2) Unlock Jenkins (first-time setup)
+
+1. Open: http://localhost:8080/ (the script opens it automatically when it finds the initial password).
+2. The helper script attempts to print the initial admin password. Example terminal output:
+
+```
+Initial Jenkins admin password (from logs): 7be53a6b23394b6794216373a27c1357
+```
+
+3. If you didn't run the script or missed the password, fetch it directly:
+
+```powershell
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+4. Paste the password on the Unlock page and complete the setup wizard (install plugins and create an admin user).
+
+## 3) Create a permanent agent node in Jenkins and get the JNLP secret
+
+1. In Jenkins UI → Manage Jenkins → Manage Nodes and Clouds → New Node.
+2. Create a new **Permanent Agent** (name e.g. `agent-1`).
+3. Set:
+   - Remote root directory: `/home/jenkins/agent` (matches compose)
+   - Labels: e.g. `docker-agent` (used in pipelines)
+   - Launch method: **Launch agent by connecting it to the controller** (JNLP)
+4. Save the node and open its page. Copy the agent secret (JNLP token) shown on the "Launch agent" page.
+
+Tip: If the UI shows a sample `java -jar agent.jar ...` or a `docker run` example, you can use the secret from the `agent` section.
+
+## 4) Wire the secret into Compose (`.env`) and start agent
+
+1. Copy `.env.example` to `.env` and edit it:
+
+```powershell
+cp .env.example .env
+notepad .env
+```
+
+Set the secret and agent name:
+
+```
+JENKINS_AGENT_NAME=agent-1
+JENKINS_SECRET=PASTE_THE_JNLP_SECRET_HERE
+```
+
+2. Start the compose stack (reads `.env` automatically):
+
+```powershell
+docker compose up -d
+```
+
+Or use the script to start compose:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\run-jenkins.ps1 -Compose
+```
+
+If you run with `-Compose -Force`, the script will try to `docker compose down --volumes` and remove `jenkins_home` before starting (destructive).
+
+## 5) Verify agent connected and online
+
+1. In Jenkins UI → Manage Nodes and Clouds → click the node name (`agent-1`). Status should be **Online**.
+2. Inspect logs:
+
+```powershell
+docker logs -f jenkins-agent-1
+docker logs jenkins --tail 200 | Select-String -Pattern 'connected' -Context 2
+```
+
+3. If agent is offline:
+- Check `.env` has the correct `JENKINS_SECRET` and `JENKINS_AGENT_NAME`.
+- Ensure the agent container can reach the controller. Inside the Compose network the controller address is `http://jenkins:8080`.
+- If controller is not in the same network, set `JENKINS_URL` in `.env` to a reachable controller URL.
+
+## 6) Use the agent from pipelines
+
+Label the agent (e.g. `docker-agent`) and use that label in pipelines.
+
+Declarative example (`Jenkinsfile`):
+
+```groovy
+pipeline {
+  agent { label 'docker-agent' }
+  stages {
+    stage('Hello') {
+      steps {
+        echo 'Running on remote agent'
+      }
+    }
+  }
+}
+```
+
+Scripted example (`scripted-pipeline.groovy`):
+
+```groovy
+node('docker-agent') {
+  stage('Hello') { echo 'Hello from agent' }
+}
+```
+
+If you created the node with label `agent-1`, use `agent { label 'agent-1' }` or `node('agent-1')`.
+
+## 7) If the agent needs Docker (building images)
+
+Two approaches:
+
+- Mount host Docker socket (simple, less secure):
+
+  In `docker-compose.yml` add under the `agent` service:
+
+  ```yaml
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  ```
+
+  This allows the agent container to run Docker commands on the host. Security risk: access to host Docker is equivalent to root.
+
+- Docker-in-Docker (DinD) — more isolation but more complex.
+
+## 8) Troubleshooting checklist
+
+- Agent offline: wrong `JENKINS_SECRET`, mismatched `JENKINS_AGENT_NAME`, or network connectivity.
+- Check agent logs: `docker logs jenkins-agent-1`.
+- Check controller logs for connection attempts: `docker logs jenkins`.
+- If secret expired or regenerated, update `.env` and recreate the agent container.
+
+## 9) Cleanup and destructive operations
+
+- Stop and remove compose stack and volumes:
+
+```powershell
+docker compose down --volumes --remove-orphans
+```
+
+- Remove the persistent volume (DESTRUCTIVE):
+
+```powershell
+docker volume rm jenkins_home
+```
+
+## 10) Security notes & best practices
+
+- Never commit `.env` containing `JENKINS_SECRET` to source control.
+- Use agent labels to limit which jobs run on which agents.
+- Avoid mounting the Docker socket unless necessary. Prefer ephemeral agents for elevated privileges.
+
+---
+
+If you want, I can:
+- Add an interactive confirmation prompt before removing volumes when `-Force` is used.
+- Add a `.env.example` reference at the top of the README (already included in the repo).
+- Add a short Job DSL to create the agent node programmatically.
+
+Tell me which next enhancement you'd like and I'll implement it.
 # Jenkins (Docker) + Example Pipelines
 
 This repository contains a small helper script to run Jenkins in Docker on Windows and two example pipelines you can import and run in Jenkins:
