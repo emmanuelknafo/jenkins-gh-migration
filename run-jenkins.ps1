@@ -91,7 +91,9 @@ while ((Get-Date) -lt $start.AddSeconds($timeout)) {
             if ($pw) {
                 $initial = $pw.Trim()
                 Write-Host "`nInitial Jenkins admin password (from secrets file): $initial"
-                # do not break; let readiness continue to be detected, but we've already shown the password
+                # Stop waiting and proceed to open the browser immediately
+                $ready = $true
+                break
             }
         } catch {
             # ignore
@@ -105,6 +107,9 @@ while ((Get-Date) -lt $start.AddSeconds($timeout)) {
                     if ($m.Success) {
                         $initial = $m.Value
                         Write-Host "`nInitial Jenkins admin password (from logs): $initial"
+                        # Stop waiting and proceed to open the browser immediately
+                        $ready = $true
+                        break
                     } else {
                         # look for the explanatory block and pick the next non-empty-looking line
                         $lines = ($recent -replace '\[LF\]>\s*', '') -split "\r?\n"
@@ -115,6 +120,8 @@ while ((Get-Date) -lt $start.AddSeconds($timeout)) {
                                     if ($cand -match '^[0-9a-fA-F]{32}$') {
                                         $initial = $cand
                                         Write-Host "`nInitial Jenkins admin password (from logs): $initial"
+                                        # Stop waiting and proceed to open the browser immediately
+                                        $ready = $true
                                         break
                                     }
                                 }
