@@ -1,0 +1,109 @@
+/*
+Advanced Declarative Jenkinsfile example (dummy pipeline).
+Features demonstrated:
+ - Parameters and environment variables
+ - Options (timeout, timestamps)
+ - Parallel stages (build/test matrix)
+ - Conditional stages using `when`
+ - Archiving artifacts and publishing
+ - Post actions (always/cleanup)
+
+This is a safe, dummy pipeline you can adapt for real builds.
+*/
+
+pipeline {
+  agent { label 'docker-agent' }
+
+  options {
+    timestamps()
+    timeout(time: 60, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+  }
+
+  parameters {
+    string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
+    booleanParam(name: 'RUN_INTEGRATION', defaultValue: false, description: 'Run integration tests?')
+    choice(name: 'PROFILE', choices: ['dev','staging','prod'], description: 'Target profile')
+  }
+
+  environment {
+    APP_NAME = 'demo-app'
+    BUILD_DIR = 'build'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        echo "Checking out branch ${params.BRANCH}"
+        checkout scm: [
+          $class: 'GitSCM',
+          branches: [[name: "refs/heads/${params.BRANCH}"]],
+          userRemoteConfigs: [[url: env.GIT_URL ?: 'https://example.com/your-repo.git']]
+        ]
+      }
+    }
+
+    stage('Build & Test') {
+      parallel {
+        stage('Build') {
+          steps {
+            echo "Building ${env.APP_NAME} (profile=${params.PROFILE})"
+            sh 'mkdir -p ${BUILD_DIR} && echo dummy-artifact > ${BUILD_DIR}/app.txt'
+          }
+        }
+
+        stage('Unit Tests') {
+          steps {
+            echo 'Running unit tests'
+            sh 'echo OK > ${BUILD_DIR}/unit.test'
+          }
+        }
+
+        stage('Integration Tests') {
+          when {
+            expression { return params.RUN_INTEGRATION }
+          }
+          steps {
+            echo 'Running integration tests (this may be slow)'
+            sh 'echo INTEGRATION_OK > ${BUILD_DIR}/integration.test'
+          }
+        }
+      }
+    }
+
+    stage('Static Analysis') {
+      steps {
+        echo 'Running static analysis (placeholder)'
+        sh 'echo lint-ok > ${BUILD_DIR}/lint.txt'
+      }
+    }
+
+    stage('Package') {
+      steps {
+        echo 'Packaging artifacts'
+        sh 'tar -czf ${BUILD_DIR}/${APP_NAME}-${BUILD_NUMBER}.tgz -C ${BUILD_DIR} .'
+      }
+    }
+
+    stage('Archive & Publish') {
+      steps {
+        archiveArtifacts artifacts: "${BUILD_DIR}/**/*", fingerprint: true
+        echo 'Simulate publish step: push to artifact repository (omitted)'
+      }
+    }
+  }
+
+  post {
+    always {
+      echo 'Collecting test reports and cleaning workspace'
+      junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+      cleanWs()
+    }
+    success {
+      echo "Build ${env.BUILD_NUMBER} succeeded"
+    }
+    failure {
+      echo "Build ${env.BUILD_NUMBER} failed"
+    }
+  }
+}
