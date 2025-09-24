@@ -1,0 +1,140 @@
+name: Convert - Scripted Pipeline (GitHub Actions)
+
+on:
+  workflow_dispatch:
+    inputs:
+      BRANCH:
+        description: 'Git branch'
+        required: true
+        default: 'main'
+      RUN_INTEGRATION:
+        description: 'Run integration stage?'
+        required: true
+        default: 'false'
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.BRANCH }}
+
+      - name: Create build directory and prep file
+        run: |
+          mkdir -p build
+          echo build-prep > build/prep.txt
+
+      - name: Upload prepared stash
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared
+          path: build/**
+
+  worker-a:
+    name: Worker A
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download prepared stash
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared
+
+      - name: Worker A - write file
+        run: |
+          echo "Worker A running on ${{ runner.name }}"
+          echo A > build/a.txt
+
+      - name: Upload worker A outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-a
+          path: build/**
+
+  worker-b:
+    name: Worker B
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download prepared stash
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared
+
+      - name: Worker B - write file
+        run: |
+          echo "Worker B running on ${{ runner.name }}"
+          echo B > build/b.txt
+
+      - name: Upload worker B outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-b
+          path: build/**
+
+  integration:
+    name: Integration
+    needs: [worker-a, worker-b]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.RUN_INTEGRATION == 'true' }}
+    steps:
+      - name: Download prepared stash
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared
+
+      - name: Run integration (dummy)
+        run: |
+          echo 'Running integration tests (dummy)'
+          echo integration > build/integration.txt
+
+      - name: Upload integration outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration
+          path: build/**
+
+  package:
+    name: Package
+    needs: [worker-a, worker-b]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download worker artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-a
+
+      - name: Download worker artifacts (b)
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-b
+
+      - name: Optionally download integration outputs
+        if: ${{ github.event.inputs.RUN_INTEGRATION == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: integration
+
+      - name: Package artifact
+        run: |
+          # Use GitHub run number as BUILD_NUMBER equivalent
+          mkdir -p build || true
+          tar -czf build/artifact-${{ github.run_number }}.tgz -C build .
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-artifact
+          path: build/artifact-${{ github.run_number }}.tgz
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [package]
+    if: always()
+    steps:
+      - name: Cleaning up workspace (no-op on Actions)
+        run: echo 'Cleaning up workspace (runners are ephemeral)'
