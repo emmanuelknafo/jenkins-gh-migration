@@ -13,7 +13,8 @@ pipeline {
             agent { label 'docker-agent' }
             steps {
                 echo "Running prepare on ${env.NODE_NAME}"
-                sh 'mkdir -p ${buildDir} && echo build-prep > ${buildDir}/prep.txt'
+                // Use double-quoted Groovy strings so ${buildDir} is expanded before the shell runs
+                sh "mkdir -p ${buildDir} && echo build-prep > ${buildDir}/prep.txt"
                 stash includes: "${buildDir}/**", name: 'prepared'
             }
         }
@@ -25,7 +26,7 @@ pipeline {
                     steps {
                         unstash 'prepared'
                         echo "Worker A running on ${env.NODE_NAME}"
-                        sh 'echo A > ${buildDir}/a.txt'
+                        sh "echo A > ${buildDir}/a.txt"
                     }
                 }
                 stage('Worker B') {
@@ -33,7 +34,7 @@ pipeline {
                     steps {
                         unstash 'prepared'
                         echo "Worker B running on ${env.NODE_NAME}"
-                        sh 'echo B > ${buildDir}/b.txt'
+                        sh "echo B > ${buildDir}/b.txt"
                     }
                 }
             }
@@ -46,7 +47,7 @@ pipeline {
             agent { label 'docker-agent' }
             steps {
                 echo 'Running integration tests (dummy)'
-                sh 'echo integration > ${buildDir}/integration.txt'
+                sh "echo integration > ${buildDir}/integration.txt"
             }
         }
 
@@ -54,7 +55,7 @@ pipeline {
             agent { label 'docker-agent' }
             steps {
                 echo 'Packaging'
-                sh 'tar -czf ${buildDir}/artifact-${BUILD_NUMBER}.tgz -C ${buildDir} .'
+                sh "tar -czf ${buildDir}/artifact-${BUILD_NUMBER}.tgz -C ${buildDir} ."
                 archiveArtifacts artifacts: "${buildDir}/**/*"
             }
         }
@@ -62,7 +63,13 @@ pipeline {
     post {
         always {
             echo 'Cleaning up workspace'
-            cleanWs()
+            // cleanWs() requires a node context; this pipeline uses `agent none` at the top
+            // so run cleanWs inside a node block to ensure it has workspace access.
+            script {
+                node('docker-agent') {
+                    cleanWs()
+                }
+            }
         }
     }
 }
